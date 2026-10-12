@@ -68,6 +68,13 @@ describe('metadata tagger', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
+  it('clears retained series tags for a canonically identified standalone book', async () => {
+    fsMock.access.mockResolvedValue(undefined);mockExecFileSuccess('done');
+    const result = await tagAudioFileMetadata('/tmp/book.m4b', { title: 'Book', author: 'Author', canonicalSeries: true });
+    expect(result.success).toBe(true);
+    const argv = lastCallArgv();
+    for (const key of ['SERIES', 'SERIES-PART', 'ALBUMSERIES', 'SHOW', 'show', 'episode_id']) expectMetadataArg(argv, key, '');
+  });
 
   it('returns an error for unsupported file formats', async () => {
     fsMock.access.mockResolvedValue(undefined);

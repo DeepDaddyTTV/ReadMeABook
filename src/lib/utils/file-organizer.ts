@@ -269,6 +269,7 @@ export class FileOrganizer {
               asin: audiobook.asin,
               series: audiobook.series,
               seriesPart: audiobook.seriesPart,
+              ...(canonicalRules ? { canonicalSeries: true } : {}),
             });
 
             const successCount = taggingResults.filter((r) => r.success).length;
