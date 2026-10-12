@@ -10,6 +10,8 @@ import { RMAB_USER_AGENT } from './user-agent';
 import { tagMultipleFiles, checkFfmpegAvailable } from './metadata-tagger';
 import { RMABLogger } from './logger';
 import { copyFile } from './copy-file';
+import { canonicalizeImport, readCanonicalRules } from './canonical-identity';
+import { canonicalizeEpubBuffer } from './canonical-epub';
 
 const moduleLogger = RMABLogger.create('FileOrganizer');
 import {
@@ -42,6 +44,14 @@ export interface OrganizationResult {
   errors: string[];
   audioFiles: string[];
   coverArtFile?: string;
+  canonicalMetadata?: CanonicalMetadata;
+}
+
+interface CanonicalMetadata {
+  title: string;
+  author: string;
+  series: string | null;
+  seriesPart: string | null;
 }
 
 export interface EbookOrganizationResult {
@@ -49,6 +59,7 @@ export interface EbookOrganizationResult {
   targetPath: string;
   errors: string[];
   format?: string;
+  canonicalMetadata?: CanonicalMetadata;
 }
 
 export interface ValidationResult {
@@ -98,6 +109,9 @@ export class FileOrganizer {
     };
 
     try {
+      const canonicalRules = await readCanonicalRules();
+      audiobook = canonicalizeImport(audiobook, canonicalRules, 'audiobook');
+      if (canonicalRules) result.canonicalMetadata = { title: audiobook.title, author: audiobook.author, series: audiobook.series || null, seriesPart: audiobook.seriesPart || null };
       await logger?.info(`Organizing: ${downloadPath}`);
 
       // Find audiobook files
@@ -827,6 +841,9 @@ export class FileOrganizer {
     };
 
     try {
+      const canonicalRules = await readCanonicalRules();
+      metadata = canonicalizeImport(metadata, canonicalRules, 'ebook');
+      if (canonicalRules) result.canonicalMetadata = { title: metadata.title, author: metadata.author, series: metadata.series || null, seriesPart: metadata.seriesPart || null };
       await logger?.info(`Organizing ebook: ${downloadPath}`);
 
       const ebookFormats = ['epub', 'pdf', 'mobi', 'azw', 'azw3', 'fb2', 'cbz', 'cbr'];
@@ -846,6 +863,11 @@ export class FileOrganizer {
       const ext = path.extname(ebookFile).toLowerCase().slice(1);
       result.format = ext;
       await logger?.info(`Detected ebook format: ${ext}`);
+
+      // Validate and normalize before creating anything in the watched library.
+      const normalizedEpub = canonicalRules && ext === 'epub'
+        ? canonicalizeEpubBuffer(await fs.readFile(sourceFilePath), metadata, canonicalRules)
+        : undefined;
 
       // Build target directory using same template as audiobooks
       const targetDir = this.buildTargetPath(
@@ -898,7 +920,11 @@ export class FileOrganizer {
       }
 
       // Copy ebook file (do NOT delete original - may need for seeding or retry)
-      await copyFile(sourceFilePath, targetPath);
+      if (normalizedEpub) {
+        await fs.writeFile(targetPath, normalizedEpub, { flag: 'wx', mode: this.fileMode });
+      } else {
+        await copyFile(sourceFilePath, targetPath);
+      }
       await fs.chmod(targetPath, this.fileMode);
 
       await logger?.info(`Copied ebook: ${targetFilename}`);

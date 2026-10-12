@@ -254,6 +254,7 @@ export async function processOrganizeFiles(payload: OrganizeFilesPayload): Promi
       data: {
         filePath: result.targetPath,
         filesHash: filesHash || null,
+        ...result.canonicalMetadata,
         status: 'completed',
         completedAt: new Date(),
         updatedAt: new Date(),
@@ -816,6 +817,7 @@ async function processEbookOrganization(
     data: {
       filePath: result.targetPath,
       fileFormat: result.format || 'epub',
+      ...result.canonicalMetadata,
       status: 'completed',
       completedAt: new Date(),
       updatedAt: new Date(),
