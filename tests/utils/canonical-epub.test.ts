@@ -42,4 +42,10 @@ describe('canonical EPUB import metadata', () => {
     const xml = new AdmZip(canonicalizeEpubBuffer(zip.toBuffer(), { title: 'Book', author: 'A. Writer, Second Writer' }, rules)).getEntry('content.opf')!.getData().toString();
     expect(xml).toContain('>A. Writer<');expect(xml).toContain('>Second Writer<');expect(xml).not.toContain('>A. Writer, Second Writer<');
   });
+  it('removes stale series on an identified standalone book while preserving unrelated collections', () => {
+    const standalone = parseCanonicalRules({ version: 1, books_by_asin: { ASIN1: { authors: ['A. Writer'], series: [] } } });
+    const xml = new AdmZip(canonicalizeEpubBuffer(fixture(), { title: 'Book', author: 'A. Writer', asin: 'ASIN1' }, standalone)).getEntry('content.opf')!.getData().toString();
+    expect(xml).not.toContain('calibre:series');expect(xml).not.toContain('Story--Series');expect(xml).not.toContain('refines="#series"');
+    expect(xml).toContain('Unrelated Collection');expect(xml).toContain('Translator Name');
+  });
 });

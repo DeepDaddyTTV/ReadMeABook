@@ -74,6 +74,13 @@ export function canonicalizeEpubBuffer(buffer: Buffer, metadata: ImportIdentity,
     }
   }
   const seriesCollections = children.filter(child => child[':@']?.['@_property'] === 'belongs-to-collection' && types.get(child[':@']?.['@_id']) === 'series');
+  if (identified && identified.series.length === 0) {
+    const ids = new Set(seriesCollections.map(c => c[':@']?.['@_id']));
+    for (let i = children.length - 1; i >= 0; i--) {
+      const attrs = children[i][':@'] || {};
+      if (seriesCollections.includes(children[i]) || ids.has((attrs['@_refines'] || '').replace(/^#/, '')) || ['calibre:series', 'calibre:series_index'].includes(attrs['@_name'])) children.splice(i, 1);
+    }
+  }
   let primaryId: string | undefined;
   let calibre = false;
   let calibreIndex = false;
